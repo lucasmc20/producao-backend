@@ -1,0 +1,47 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: producao-postgres
+    environment:
+      POSTGRES_DB: producao_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d producao_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - producao-net
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: producao-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/producao_db
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      JWT_SEGREDO: ${JWT_SEGREDO:-mude-esta-chave-em-producao-com-no-minimo-32-chars}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+    ports:
+      - "8080:8080"
+    networks:
+      - producao-net
+    restart: on-failure
+
+volumes:
+  postgres_data:
+
+networks:
+  producao-net:
+    driver: bridge
